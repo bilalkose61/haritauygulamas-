@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <!-- YENİ 1: user-scalable=no kaldırıldı. Artık iOS ve Android'de harika bir şekilde iki parmakla yakınlaştırma (zoom) yapılabilecek! -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bellis Deluxe Otel Haritası</title>
+  
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Montserrat:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* --- Temel Ayarlar --- */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: #111111; /* Harita arkasında kalacak şık koyu zemin */
+      font-family: 'Montserrat', sans-serif; 
+      /* overflow: hidden SİLİNDİ: Artık haritada özgürce kaydırma ve zoom yapılabilecek */
+    }
+
+    /* --- Karşılama Ekranı Stilleri --- */
+    #welcomeScreen {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background-color: #f7f8fa; 
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999; 
+      color: #333; 
+      text-align: center;
+    }
+
+    .welcome-content {
+      background: #ffffff; 
+      padding: 0 40px 50px 40px; 
+      border-radius: 30px;
+      /* YENİ 2: İnce, zarif gold üst çizgi ve çok hafif gold aura gölgesi */
+      border-top: 4px solid #c9a063;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.05), 0 0 30px rgba(201, 160, 99, 0.04); 
+      max-width: 90%;
+      width: 460px;
+      margin-top: 50px; 
+    }
+
+    .logo-container {
+      width: 120px;
+      height: 120px;
+      background: #ffffff;
+      border-radius: 28px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+      margin: -60px auto 25px auto; 
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border: 1px solid #f0f0f0;
+      padding: 15px;
+    }
+
+    .welcome-logo {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+
+    .hotel-title {
+      font-family: 'Cinzel', serif;
+      font-size: 32px;
+      color: #1a1a1a;
+      letter-spacing: 2px;
+      line-height: 1.2;
+      margin-bottom: 5px;
+    }
+
+    .hotel-subtitle {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 11px;
+      letter-spacing: 6px;
+      color: #c9a063; 
+      font-weight: 600;
+      display: block;
+      margin-top: 5px;
+    }
+
+    .app-title {
+      font-size: 12px;
+      letter-spacing: 2px;
+      color: #888;
+      font-weight: 400;
+      margin-bottom: 30px;
+      margin-top: 20px;
+      position: relative;
+    }
+
+    /* YENİ 2: Yazının altındaki zarif gold ayraç çizgisi */
+    .app-title::after {
+      content: "";
+      display: block;
+      width: 40px;
+      height: 2px;
+      background: linear-gradient(90deg, #c9a063, #e5c07b);
+      margin: 15px auto 0;
+      border-radius: 2px;
+    }
+
+    .welcome-text {
+      margin-bottom: 30px;
+      font-size: 15px;
+      color: #555;
+      line-height: 1.5;
+    }
+
+    /* Dil Seçimi ve Butonlar */
+    .lang-selector {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 35px;
+    }
+    
+    .lang-btn {
+      background-color: #f4f4f4;
+      color: #777;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .lang-btn:hover { background-color: #e8e8e8; }
+    .lang-btn.active {
+      background-color: #c9a063;
+      color: white;
+      box-shadow: 0 6px 15px rgba(201, 160, 99, 0.35);
+    }
+    
+    .lang-flag { font-size: 16px; }
+
+    .selection-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .select-btn {
+      padding: 16px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 12px;
+      text-align: left;
+    }
+
+    #btnInteractive, #btnInteractiveEN, #btnInteractiveRU {
+      background: linear-gradient(135deg, #d4af37 0%, #aa8327 100%);
+      color: white;
+      box-shadow: 0 8px 20px rgba(184, 134, 11, 0.25);
+    }
+
+    #btnClean, #btnCleanEN, #btnCleanRU {
+      background-color: #ffffff;
+      color: #333;
+      border: 1px solid #e0e0e0;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+    }
+
+    .select-btn:active { transform: scale(0.98); }
+
+    /* --- YENİ 1: Mükemmel Ortalanan ve Zoom Yapılabilen Harita Yapısı --- */
+    #mapArea {
+      display: none; /* JS ile flex yapılacak */
+      width: 100%;
+      min-height: 100vh; /* Ekranı tam kaplar ama taşarsa kaydırma sağlar */
+      justify-content: center; /* Yatayda ortalar */
+      align-items: center; /* Dikeyde ortalar */
+      padding: 20px 0; /* Geri butonu için üstte nefes alma payı */
+    }
+
+    .map-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 1200px; /* Tablet ve bilgisayarda devasa olmasını engeller, mobilde zaten %100'dür */
+      box-shadow: 0 0 40px rgba(0,0,0,0.8); /* Haritanın zeminle bütünleşmesi için şık bir gölge */
+    }
+    
+    .map-image {
+      width: 100%;
+      height: auto; /* Oranı korur, esnemez */
+      display: block;
+    }
+
+    .pin {
+      position: absolute;
+      width: 22px;  
+      height: 22px; 
+      background: radial-gradient(circle at center, #c9a063 0%, #b8860b 100%);
+      border: 2px solid #fff;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 4px 6px rgba(0,0,0,0.4), inset 0 2px 3px rgba(255,255,255,0.4);
+      cursor: pointer;
+      animation: bellisPulse 2.5s infinite;
+      z-index: 10;
+      transition: transform 0.2s ease-out;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      font-weight: bold;
+      font-size: 11px;
+    }
+
+    .pin:active { transform: translate(-50%, -50%) scale(1.1); }
+
+    @keyframes bellisPulse {
+      0% { box-shadow: 0 0 0 0 rgba(201, 160, 99, 0.7), 0 4px 6px rgba(0,0,0,0.4); }
+      70% { box-shadow: 0 0 0 10px rgba(201, 160, 99, 0), 0 4px 6px rgba(0,0,0,0.4); }
+      100% { box-shadow: 0 0 0 0 rgba(201, 160, 99, 0), 0 4px 6px rgba(0,0,0,0.4); }
+    }
+
+    /* Geri Gelme Butonu - Sabitlendi (Fixed) */
+    #btnBack {
+      position: fixed; /* Ekranı kaydırsan da zoom yapsan da sol üstte kalır */
+      top: 20px;
+      left: 20px;
+      z-index: 1000;
+      background: #ffffff;
+      color: #333;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 18px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    #btnBack:hover {
+      background: #f8f9fb;
+      transform: scale(1.05);
+    }
+    
+    #btnBack:active { transform: translateY(2px); }
+
+    /* Modal Stilleri */
+    .modal-overlay {
+      display: none;
+      position: fixed; /* Modal daima ekranda sabit kalır */
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 9999;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .modal-content {
+      background: #fff;
+      width: 100%;
+      max-width: 450px;
+      border-radius: 20px;
+      padding: 30px;
+      position: relative;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 15px 40px rgba(0,0,0,0.5);
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: #f0f0f0;
+      color: #333;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .lang-section { margin-bottom: 22px; }
+    .lang-section h3 { font-size: 18px; color: #1a1a1a; margin-bottom: 6px; font-weight: 700; }
+    .lang-section p { font-size: 14px; color: #666; line-height: 1.6; }
+    .flag { font-size: 18px; margin-right: 8px; vertical-align: middle; }
+
+    .photo-gallery {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin-top: 25px;
+    }
+    
+    .photo-gallery img {
+      width: 100%;
+      border-radius: 12px;
+      object-fit: cover;
+      height: 220px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Karşılama ve Seçim Ekranı -->
+  <div id="welcomeScreen">
+    <div class="welcome-content">
+      
+      <div class="logo-container">
+        <img src="bellis-logo.png" alt="Bellis Deluxe Logo" class="welcome-logo" onerror="this.style.display='none'">
+      </div>
+      
+      <h1 class="hotel-title">BELLIS<br><span class="hotel-subtitle">DELUXE HOTEL</span></h1>
+      <div class="app-title">DİJİTAL TESİS HARİTASI</div>
+      
+      <div class="lang-selector">
+        <button class="lang-btn active" data-lang="tr" onclick="changeWelcomeLang('tr')">
+          <span class="lang-flag">🇹🇷</span> TR
+        </button>
+        <button class="lang-btn" data-lang="en" onclick="changeWelcomeLang('en')">
+          <span class="lang-flag">🇬🇧</span> EN
+        </button>
+        <button class="lang-btn" data-lang="ru" onclick="changeWelcomeLang('ru')">
+          <span class="lang-flag">🇷🇺</span> RU
+        </button>
+      </div>
+      
+      <div id="welcome-content-tr">
+        <p class="welcome-text">Hoş geldiniz. Tesisimizi keşfetmek için lütfen seçiminizi yapınız:</p>
+        <div class="selection-buttons">
+          <button id="btnInteractive" class="select-btn" onclick="showInteractiveMap()">
+            <i data-lucide="map-pin"></i> Fotoğraflı harita için tıklayın.
+          </button>
+          <button id="btnClean" class="select-btn" onclick="showCleanMap()">
+            <i data-lucide="map"></i> Tesisimizin detaylı haritası için tıklayın.
+          </button>
+        </div>
+      </div>
+      
+      <div id="welcome-content-en" style="display: none;">
+        <p class="welcome-text">Welcome. Please make your selection to explore our facility:</p>
+        <div class="selection-buttons">
+          <button id="btnInteractiveEN" class="select-btn" onclick="showInteractiveMap()">
+            <i data-lucide="map-pin"></i> Click for the map with photos.
+          </button>
+          <button id="btnCleanEN" class="select-btn" onclick="showCleanMap()">
+            <i data-lucide="map"></i> Click for the detailed map of our facility.
+          </button>
+        </div>
+      </div>
+      
+      <div id="welcome-content-ru" style="display: none;">
+        <p class="welcome-text">Добро пожаловать. Пожалуйста, сделайте выбор, чтобы изучить наш отель:</p>
+        <div class="selection-buttons">
+          <button id="btnInteractiveRU" class="select-btn" onclick="showInteractiveMap()">
+            <i data-lucide="map-pin"></i> Нажмите для карты с фото.
+          </button>
+          <button id="btnCleanRU" class="select-btn" onclick="showCleanMap()">
+            <i data-lucide="map"></i> Нажмите для подробной карты нашей территории.
+          </button>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+
+  <!-- YENİ: Haritayı İçine Alan ve Ortalamayı Sağlayan Dış Alan -->
+  <div id="mapArea">
+    <button id="btnBack" onclick="showWelcomeScreen()">
+      <i data-lucide="arrow-left"></i> <span id="backBtnText">Geri</span>
+    </button>
+    
+    <!-- Pinlerin Düzgün Hizalanması İçin Ana Taşıyıcı -->
+    <div class="map-wrapper" id="mapWrapper">
+      <img id="mainMapImage" src="bellis-plan.jpg" alt="Bellis Deluxe Otel Planı" class="map-image">
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="infoModal">
+    <div class="modal-content">
+      <button class="close-btn" onclick="closeModal()">Kapat X</button>
+      <div id="modalData"></div>
+    </div>
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    let currentWelcomeLang = 'tr';
+
+    function changeWelcomeLang(lang) {
+      document.getElementById('welcome-content-' + currentWelcomeLang).style.display = 'none';
+      document.querySelector('.lang-btn.active').classList.remove('active');
+      
+      currentWelcomeLang = lang;
+      document.getElementById('welcome-content-' + lang).style.display = 'block';
+      document.querySelector('.lang-btn[data-lang="' + lang + '"]').classList.add('active');
+      
+      const backText = document.getElementById('backBtnText');
+      if(lang === 'en') backText.innerText = 'Back';
+      else if(lang === 'ru') backText.innerText = 'Назад';
+      else backText.innerText = 'Geri';
+    }
+
+    const mainMapImage = document.getElementById('mainMapImage');
+
+    function showInteractiveMap() {
+      document.getElementById('welcomeScreen').style.display = 'none';
+      document.getElementById('mapArea').style.display = 'flex'; // Dış yapıyı gösteriyoruz
+      
+      mainMapImage.src = 'bellis-plan.jpg'; 
+      
+      const pins = document.querySelectorAll('.pin');
+      pins.forEach(pin => pin.style.display = 'flex');
+    }
+
+    function showCleanMap() {
+      document.getElementById('welcomeScreen').style.display = 'none';
+      document.getElementById('mapArea').style.display = 'flex'; // Dış yapıyı gösteriyoruz
+      
+      mainMapImage.src = 'temiz-plan.jpg'; 
+      
+      const pins = document.querySelectorAll('.pin');
+      pins.forEach(pin => pin.style.display = 'none');
+    }
+
+    function showWelcomeScreen() {
+      document.getElementById('mapArea').style.display = 'none';
+      document.getElementById('welcomeScreen').style.display = 'flex';
+      closeModal();
+    }
+
+    // Harita Verileri (Hiçbiri Bozulmadı)
+    const locations = [
+      {
+        pinNum: 1, 
+        id: "main_entrance", 
+        x: 49.5, y: 5.5,
+        tr: { title: "Otel Ana Giriş", desc: "Otele giriş ve karşılama noktamız." },
+        en: { title: "Hotel Main Entrance", desc: "Hotel entrance and welcome point." },
+        ru: { title: "Главный вход", desc: "Вход в отель и пункт встречи." },
+        photos: ["fotograflar/giris-1.jpg", "fotograflar/giris-2.jpg"]
+      },
+      {
+        pinNum: 4, 
+        id: "zoo", 
+        x: 26.5, y: 17.0, 
+        tr: { title: "Zoo & Binicilik Kulübü", desc: "Ailenizle harika vakit geçirebileceğiniz hayvanat bahçesi." },
+        en: { title: "Zoo & Horse Club", desc: "A wonderful zoo to spend time with your family." },
+        ru: { title: "Зоопарк и конный клуб", desc: "Прекрасный зоопарк для отдыха с семьей." },
+        photos: ["fotograflar/zoo-1.jpg", "fotograflar/zoo-2.jpg"]
+      },
+      {
+        pinNum: 5,
+        id: "main_building", 
+        x: 26.5, y: 24.5, 
+        tr: { title: "Ana Bina", desc: "Resepsiyon, Lobby Bar, Conference Halls ve Rox Night Club." },
+        en: { title: "Main Building", desc: "Reception, Lobby Bar, Conference Halls and Rox Night Club." },
+        ru: { title: "Главное здание", desc: "Ресепшn, лобби-бар, конференц-залы и ночной клуб Rox." },
+        photos: ["fotograflar/main-bina-1.jpg", "fotograflar/main-bina-2.jpg"]
+      },
+      {
+        pinNum: 8,
+        id: "main_restaurant", 
+        x: 36.5, y: 33.5, 
+        tr: { title: "Bellissimo Ana Restoran", desc: "Lezzetli açık büfe kahvaltı, öğle ve akşam yemekleri." },
+        en: { title: "Bellissimo Main Restaurant", desc: "Delicious buffet breakfast, lunch, and dinner." },
+        ru: { title: "Главный ресторан Bellissimo", desc: "Вкусный завтрак, обед и ужин 'шведский стол'." },
+        photos: ["fotograflar/restoran-1.jpg", "fotograflar/restoran-2.jpg"]
+      },
+      {
+        pinNum: 13,
+        id: "main_pool", 
+        x: 37.5, y: 46.5, 
+        tr: { title: "Ana Havuz", desc: "Eğlenceli aktivitelerin merkezi olan büyük açık yüzme havuzumuz." },
+        en: { title: "Main Outdoor Pool", desc: "Our large outdoor swimming pool, the center of fun activities." },
+        ru: { title: "Главный бассейн", desc: "Наш большой открытый бассейн - центр веселых мероприятий." },
+        photos: ["fotograflar/havuz-1.jpg", "fotograflar/havuz-2.jpg"]
+      },
+      {
+        pinNum: 16,
+        id: "aqua_park", 
+        x: 10.5, y:54.5, 
+        tr: { title: "Aquamania Su Parkı", desc: "Adrenalin dolu kaydıraklar ve sınırsız su eğlencesi." },
+        en: { title: "Aquamania Aqua Park", desc: "Adrenaline-filled slides and unlimited water fun." },
+        ru: { title: "Аквапарк Aquamania", desc: "Захватывающие дух горки и безграничное водное веселье." },
+        photos: ["fotograflar/aqua1.jpg", "fotograflar/aqua2.jpg"]
+      },
+      {
+        pinNum: 19,
+        id: "amphitheatre", 
+        x: 18.5, y: 59.0, 
+        tr: { title: "Amfitiyatro", desc: "Akşamları unutulmaz şovlar, gösteriler ve eğlenceler." },
+        en: { title: "Amphitheatre", desc: "Unforgettable evening shows, performances and entertainment." },
+        ru: { title: "Амфитеатр", desc: "Незабываемые вечерние шоу, выступления и развлечения." },
+        photos: ["fotograflar/amfi-1.jpg", "fotograflar/amfi-2.jpg"]
+      },
+      {
+        pinNum: 23,
+        id: "kalamata_restaurant",
+        x: 41.0, y: 63.0, 
+        tr: { title: "Kalamata Restoran", desc: "Leziz tatlar sunan Snack Restoran ve serinletici içecekleriyle Beach Bar'ımız." },
+        en: { title: "Kalamata Restaurant", desc: "Our Snack Restaurant offering delicious tastes and Beach Bar with refreshing drinks." },
+        ru: { title: "Ресторан Kalamata", desc: "Наш снек-ресторан с вкусными блюдами и пляжный бар с освежающими напитками." },
+        photos: ["fotograflar/kalamata-1.jpg", "fotograflar/kalamata-2.jpg"]
+      },
+      {
+        pinNum: 26,
+        id: "pony_kids_club",
+        x: 55.0, y: 52.0, 
+        tr: { title: "Pony Kids Club", desc: "Çocuklar için özel eğitmenler eşliğinde eğlenceli ve güvenli aktiviteler." },
+        en: { title: "Pony Kids Club", desc: "Fun and safe activities for children with special instructors." },
+        ru: { title: "Детский клуб Pony", desc: "Веселые и безопасные занятия для детей со специальными инструкторами." },
+        photos: ["fotograflar/pony-1.jpg", "fotograflar/pony-2.jpg"]
+      },
+      {
+        pinNum: 35,
+        id: "relax_pool",
+        x: 61.0, y: 40.0, 
+        tr: { title: "Relax Havuz", desc: "Sessizliğin ve huzurun tadını çıkarabileceğiniz dinlenme havuzumuz." },
+        en: { title: "Relax Pool", desc: "Our relaxation pool where you can enjoy silence and peace." },
+        ru: { title: "Релакс-бассейн", desc: "Наш бассейн для релаксации, где вы можете насладиться тишиной и покоем." },
+        photos: ["fotograflar/relax-havuz-1.jpg", "fotograflar/relax-havuz-2.jpg"]
+      },
+      {
+        pinNum: 11,
+        id: "fitness_center", 
+        x: 24.5, y: 37.5, 
+        tr: { title: "Fitness Center", desc: "Tatiliniz boyunca formda kalmanız için tam donanımlı spor salonumuz." },
+        en: { title: "Fitness Center", desc: "Our fully equipped gym to stay in shape during your holiday." },
+        ru: { title: "Фитнес-центр", desc: "Наш полностью оборудованный тренажерный зал, чтобы оставаться в форме во время отпуска." },
+        photos: ["fotograflar/fitness-1.jpg", "fotograflar/fitness-2.jpg"]
+      },
+      {
+        pinNum: 12,
+        id: "indoor_pool", 
+        x: 18.0, y: 41.5, 
+        tr: { title: "Kapalı Havuz (Indoor Pool)", desc: "Hava koşullarından bağımsız, dört mevsim yüzme keyfi yaşayabileceğiniz kapalı havuzumuz." },
+        en: { title: "Indoor Pool", desc: "Our indoor pool where you can enjoy swimming in all four seasons, regardless of weather conditions." },
+        ru: { title: "Крытый бассейн", desc: "Наш крытый бассейн, где вы можете наслаждаться плаванием круглый год, независимо от погодных условий." },
+        photos: ["fotograflar/indoor-pool-1.jpg", "fotograflar/indoor-pool-2.jpg"]
+      },
+      {
+        pinNum: 15,
+        id: "kids_aqua_park", 
+        x: 12.0, y: 47.0, 
+        tr: { title: "Çocuk Su Parkı (Kids Aqua Park)", desc: "Minik misafirlerimiz için güvenli, rengarenk ve eğlence dolu su kaydırakları." },
+        en: { title: "Kids Aqua Park", desc: "Safe, colorful, and fun-filled water slides for our little guests." },
+        ru: { title: "Детский аквапарк", desc: "Безопасные, красочные и веселые водные горки для наших маленьких гостей." },
+        photos: ["fotograflar/kids-aqua-1.jpg", "fotograflar/kids-aqua-2.jpg"]
+      },
+      {
+        pinNum: 6,
+        id: "cafe_bellis", 
+        x: 26.5, y: 31.0, 
+        tr: { title: "Café Bellis", desc: "Taze kahve çeşitleri, günlük tatlılar ve hafif atıştırmalıklarla keyifli bir mola noktası." },
+        en: { title: "Café Bellis", desc: "A pleasant break point with fresh coffee varieties, daily desserts, and light snacks." },
+        ru: { title: "Кафе Bellis", desc: "Приятное место для отдыха со свежими сортами кофе, ежедневными десертами и легкими закусками." },
+        photos: ["fotograflar/cafe-bellis-1.jpg", "fotograflar/cafe-bellis-2.jpg"]
+      },
+      {
+        pinNum: 36,
+        id: "white_bistro",
+        x: 53.5, y: 42.5, 
+        tr: { title: "White Bistro", desc: "Gün boyu lezzetli atıştırmalıklar ve serinletici içecekler eşliğinde dinlendirici bir atmosfer." },
+        en: { title: "White Bistro", desc: "A relaxing atmosphere with delicious snacks and refreshing drinks throughout the day." },
+        ru: { title: "White Bistro", desc: "Расслабляющая атмосфера с вкусными закусками и освежающими напитками в течение всего дня." },
+        photos: ["fotograflar/white-bistro-1.jpg", "fotograflar/white-bistro-2.jpg"]
+      },
+      {
+        pinNum: 20,
+        id: "water_sports", 
+        x: 3.5, y: 68.0, 
+        tr: { title: "Su Sports (Water Sports)", desc: "Adrenalin ve eğlence arayanlar için denizde çeşitli su sporları aktiviteleri." },
+        en: { title: "Water Sports", desc: "Various water sports activities in the sea for those seeking adrenaline and fun." },
+        ru: { title: "Водные виды спорта", desc: "Различные виды водного спорта на море для тех, кто ищет адреналин и веселье." },
+        photos: ["fotograflar/water-sports-1.jpg", "fotograflar/water-sports-2.jpg"]
+      },
+      {
+        pinNum: 3,
+        id: "kids_playground", 
+        x: 67.0, y: 59.0, 
+        tr: { title: "Çocuk Oyun Alanı (Kids Playground)", desc: "Minik misafirlerimizin güvenle ve neşeyle vakit geçirebileceği açık hava oyun parkımız." },
+        en: { title: "Kids Playground", desc: "Our outdoor playground where our little guests can spend time safely and joyfully." },
+        ru: { title: "Детская игровая площадка", desc: "Наша открытая игровая площадка, где наши маленькие гости могут безопасно и радостно проводить время." },
+        photos: ["fotograflar/playground-1.jpg", "fotograflar/playground-2.jpg"]
+      },
+      {
+        pinNum: 38,
+        id: "tennis_courts", 
+        x: 64.0, y: 20.5, 
+        tr: { title: "Tenis Kortları", desc: "Sporsever misafirlerimiz için profesyonel zeminli açık hava tenis kortlarımız." },
+        en: { title: "Tennis Courts", desc: "Our outdoor tennis courts with professional surfaces for our sports-loving guests." },
+        ru: { title: "Теннисные корты", desc: "Наши открытые теннисные корты с профессиональным покрытием для любителей спорта." },
+        photos: ["fotograflar/tennis-1.jpg", "fotograflar/tennis-2.jpg"]
+      },
+      {
+        pinNum: 37, 
+        id: "mimosa_garden_rooms",
+        x: 42.0, y: 22.0, 
+        tr: { title: "Mimosa Garden Odaları", desc: "Yeşillikler içinde, doğayla baş başa kalabileceğiniz huzurlu bahçe odalarımız." },
+        en: { title: "Mimosa Garden Rooms", desc: "Our peaceful garden rooms where you can be alone with nature, surrounded by greenery." },
+        ru: { title: "Садовые номера Mimosa", desc: "Наши тихие садовые номера, где можно уединиться с природой в окружении зелени." },
+        photos: ["fotograflar/mimosa-1.jpg", "fotograflar/mimosa-2.jpg"]
+      },
+      {
+        pinNum: 34,
+        id: "camelia_garden_rooms",
+        x: 71.0, y: 32.0, 
+        tr: { title: "Camelia Garden Odaları", desc: "Muhteşem bahçe manzarası eşliğinde konforlu ve rahatlatıcı bir konaklama deneyimi." },
+        en: { title: "Camelia Garden Rooms", desc: "A comfortable and relaxing accommodation experience accompanied by a magnificent garden view." },
+        ru: { title: "Садовые номера Camelia", desc: "Комфортное и расслабляющее проживание в сопровождении великолепного вида на сад." },
+        photos: ["fotograflar/camelia-garden-1.jpg", "fotograflar/camelia-garden-2.jpg"]
+      }, 
+      {
+        pinNum: 33,
+        id: "camelia_family_superior",
+        x: 76.0, y: 40.5, 
+        tr: { title: "Camelia Family Superior", desc: "Geniş aileler için özel olarak tasarlanmış, ekstra konforlu ve ferah aile odalarımız." },
+        en: { title: "Camelia Family Superior", desc: "Extra comfortable and spacious family rooms specially designed for large families." },
+        ru: { title: "Camelia Family Superior", desc: "Особо комфортабельные и просторные семейные номера, специально спроектированные для больших семей." },
+        photos: ["fotograflar/camelia-sup-1.jpg", "fotograflar/camelia-sup-2.jpg"]
+      },
+      {
+        pinNum: 34,
+        id: "camelia_garden_rooms_2", 
+        x: 55.0, y: 30.5, 
+        tr: { title: "Camelia Garden Odaları", desc: "Muhteşem bahçe manzarası eşliğinde konforlu ve rahatlatıcı bir konaklama deneyimi." },
+        en: { title: "Camelia Garden Rooms", desc: "A comfortable and relaxing accommodation experience accompanied by a magnificent garden view." },
+        ru: { title: "Садовые номера Camelia", desc: "Комфортное и расслабляющее проживание в сопровождении великолепного вида на сад." },
+        photos: ["fotograflar/camelia-garden-1.jpg", "fotograflar/camelia-garden-2.jpg"]
+      },
+      {
+        pinNum: 41,
+        id: "begonvil_restaurant",
+        x: 94.0, y: 6.5, 
+        tr: { title: "Begonvil Restoran", desc: "Doğayla iç içe, begonvil çiçekleri arasında huzurlu ve keyifli bir yemek deneyimi." },
+        en: { title: "Begonvil Restaurant", desc: "A peaceful and delightful dining experience surrounded by nature and bougainvillea flowers." },
+        ru: { title: "Ресторан Begonvil", desc: "Спокойный и приятный ужин в окружении природы и цветов бугенвиллеи." },
+        photos: ["fotograflar/begonvil-1.jpg", "fotograflar/begonvil-2.jpg"]
+      },
+      {
+        pinNum: 18,
+        id: "game_hall", 
+        x: 17.5, y: 52.5, 
+        tr: { title: "Oyun Salonu (Game Hall)", desc: "Her yaşa hitap eden atari oyunları, bilardo ve eğlence makineleriyle dolu oyun merkezimiz." },
+        en: { title: "Game Hall", desc: "Our game center filled with arcade games, billiards, and entertainment machines appealing to all ages." },
+        ru: { title: "Игровой зал", desc: "Наш игровой центр с аркадными играми, бильярдом и развлекательными автоматами для всех возрастов." },
+        photos: ["fotograflar/game-hall-1.jpg", "fotograflar/game-hall-2.jpg"]
+      },
+      {
+        pinNum: 10,
+        id: "bellis_lounge", 
+        x: 37.0, y: 40.0, 
+        tr: { title: "Bellis Lounge", desc: "Seçkin içecekler ve rahatlatıcı bir atmosfer eşliğinde günün yorgunluğunu atabileceğiniz elit mekanımız." },
+        en: { title: "Bellis Lounge", desc: "Our elite venue where you can relieve the tiredness of the day accompanied by premium drinks and a relaxing atmosphere." },
+        ru: { title: "Bellis Lounge", desc: "Наше элитное заведение, где можно снять усталость дня в сопровождении премиальных напитков и расслабляющей атмосферы." },
+        photos: ["fotograflar/bellis-lounge-1.jpg", "fotograflar/bellis-lounge-2.jpg"]
+      },
+      {
+        pinNum: 9,
+        id: "a_la_carte_restaurants", 
+        x: 44.5, y: 38.0, 
+        tr: { title: "À la Carte Restoranlar", desc: "Gusto Italian, Ikebana Asian ve Steak House ile dünya mutfaklarından eşsiz lezzetleri deneyimleyin." },
+        en: { title: "À la Carte Restaurants", desc: "Experience unique flavors from world cuisines with Gusto Italian, Ikebana Asian, and Steak House." },
+        ru: { title: "Рестораны À la Carte", desc: "Попробуйте уникальные вкусы мировой кухни в ресторанах Gusto Italian, Ikebana Asian и Steak House." },
+        photos: ["fotograflar/alacarte-1.jpg", "fotograflar/alacarte-2.jpg"]
+      },
+      {
+        pinNum: 25,
+        id: "lotus_pool", 
+        x: 53.0, y: 58.0, 
+        tr: { title: "Lotus Havuz", desc: "Yeşillikler içinde, doğayla iç içe huzurlu bir yüzme deneyimi sunan Lotus Havuzumuz." },
+        en: { title: "Lotus Pool", desc: "Our Lotus Pool offering a peaceful swimming experience surrounded by greenery and nature." },
+        ru: { title: "Бассейн Lotus", desc: "Наш бассейн Lotus, предлагающий спокойное плавание в окружении зелени и природы." },
+        photos: ["fotograflar/lotus-pool-1.jpg", "fotograflar/lotus-pool-2.jpg"]
+      },
+      {
+        pinNum: 27,
+        id: "aerobics_area", 
+        x: 48.0, y: 53.0, 
+        tr: { title: "Aerobik Alanı (Aerobics Area)", desc: "Güne enerjik başlamak ve formda kalmak isteyenler için açık hava aerobik alanımız." },
+        en: { title: "Aerobics Area", desc: "Our outdoor aerobics area for those who want to start the day energetically and stay in shape." },
+        ru: { title: "Зона аэробики", desc: "Наша открытая зона для аэробики для тех, кто хочет начать день энергично и оставаться в форме." },
+        photos: ["fotograflar/aerobics-1.jpg", "fotograflar/aerobics-2.jpg"]
+      },
+      {
+        pinNum: 28,
+        id: "activity_event_area", 
+        x: 68.5, y: 50.0, 
+        tr: { title: "Aktivite & Etkinlik Alanı", desc: "Gün boyu süren eğlenceli animasyonlar, açık hava oyunları ve özel etkinliklerimizin merkezi." },
+        en: { title: "Activity & Event Area", desc: "The center of our fun animations, outdoor games, and special events lasting all day." },
+        ru: { title: "Зона развлечений и мероприятий", desc: "Центр наших веселых анимаций, игр на свежем воздухе и специальных мероприятий в течение всего дня." },
+        photos: ["fotograflar/activity-1.jpg", "fotograflar/activity-2.jpg"]
+      },
+      {
+        pinNum: 21,
+        id: "beach_volleyball", 
+        x: 9.5, y: 68.0, 
+        tr: { title: "Plaj Voleybolu (Beach Volleyball)", desc: "Kumun ve güneşin tadını çıkarırken arkadaşlarınızla keyifli plaj voleybolu maçları." },
+        en: { title: "Beach Volleyball", desc: "Enjoyable beach volleyball matches with your friends while enjoying the sand and sun." },
+        ru: { title: "Пляжный волейбол", desc: "Приятные матчи по пляжному волейболу с друзьями, наслаждаясь песком и солнцем." },
+        photos: ["fotograflar/beach-volley-1.jpg", "fotograflar/beach-volley-2.jpg"]
+      },
+      {
+        pinNum: 24,
+        id: "gozleme_house", 
+        x: 51.0, y: 66.0, 
+        tr: { title: "Gözleme Evi (Gözleme House)", desc: "Geleneksel Türk gözlemeleri ve serinletici ayran eşliğinde otantik bir lezzet molası." },
+        en: { title: "Gözleme House", desc: "An authentic taste break with traditional Turkish flatbreads (gözleme) and refreshing ayran." },
+        ru: { title: "Дом Гёзлеме", desc: "Аутентичный перерыв на вкус с традиционными турецкими лепешками (гёзлеме) и освежающим айраном." },
+        photos: ["fotograflar/gozleme-1.jpg", "fotograflar/gozleme-2.jpg"]
+      },
+      {
+        pinNum: 29,
+        id: "beach_cabanas", 
+        x: 85.0, y: 66.0, 
+        tr: { title: "Plaj Kabanaları (Beach Cabanas)", desc: "Sahilde size özel tahsis edilmiş kabanalarımızda lüks ve konforlu güneşlenme deneyimi." },
+        en: { title: "Beach Cabanas", desc: "A luxurious and comfortable sunbathing experience in our private cabanas allocated for you on the beach." },
+        ru: { title: "Пляжные кабаны", desc: "Роскошный и комфортный отдых на солнце в наших частных кабанах, выделенных для вас на пляже." },
+        photos: ["fotograflar/cabana-1.jpg", "fotograflar/cabana-2.jpg"]
+      },
+      {
+        pinNum: 7,
+        id: "boutiques_avenue", 
+        x: 32.0, y: 31.0, 
+        tr: { title: "Butikler Sokağı (Boutiques Avenue)", desc: "Tatil alışverişiniz, hediyelik eşyalar ve özel ihtiyaçlarınız için mağazalar sokağımız." },
+        en: { title: "Boutiques Avenue", desc: "Our shopping street for your holiday shopping, souvenirs, and special needs." },
+        ru: { title: "Улица бутиков", desc: "Наша торговая улица для праздничных покупок, сувениров и особых нужд." },
+        photos: ["fotograflar/boutique-1.jpg", "fotograflar/boutique-2.jpg"]
+      },
+      {
+        pinNum: 30,
+        id: "diamond_vip_lounge",
+        x: 82.0, y: 53.0, 
+        tr: { title: "Diamond VIP Lounge & Restoran", desc: "Villa misafirlerimize özel, seçkin lezzetler ve premium hizmet sunan lüks restoranımız." },
+        en: { title: "Diamond VIP Lounge & Restaurant", desc: "Our luxurious restaurant offering exclusive flavors and premium service specifically for our villa guests." },
+        ru: { title: "Diamond VIP Lounge & Ресторан", desc: "Наш роскошный ресторан, предлагающий эксклюзивные блюда и первоклассное обслуживание специально для гостей вилл." },
+        photos: ["fotograflar/diamond-vip-1.jpg", "fotograflar/diamond-vip-2.jpg"]
+      },
+      {
+        pinNum: 39,
+        id: "jasmine_rooms",
+        x: 73.0, y: 14.0, 
+        tr: { title: "Jasmine Lagoon & Pool View Odalar", desc: "Havuza doğrudan erişimi olan veya muhteşem havuz manzarası sunan lüks ve ayrıcalıklı odalarımız." },
+        en: { title: "Jasmine Lagoon & Pool View Rooms", desc: "Our luxurious and exclusive rooms offering direct pool access or a magnificent pool view." },
+        ru: { title: "Номера Jasmine Lagoon и Pool View", desc: "Наши роскошные и эксклюзивные номера с прямым доступом к бассейну или великолепным видом на него." },
+        photos: ["fotograflar/jasmine-rooms-1.jpg", "fotograflar/jasmine-rooms-2.jpg"]
+      },
+      {
+        pinNum: 32,
+        id: "bellis_villas",
+        x: 86.5, y: 37.0, 
+        tr: { title: "Bellis Villaları", desc: "Özel havuzu, geniş yaşam alanları ve kusursuz tasarımıyla en üst düzey konaklama deneyimi." },
+        en: { title: "Bellis Villas", desc: "The ultimate accommodation experience with private pools, spacious living areas, and flawless design." },
+        ru: { title: "Виллы Bellis", desc: "Непревзойденный опыт проживания с частными бассейнами, просторными гостиными и безупречным дизайном." },
+        photos: ["fotograflar/bellis-villas-1.jpg", "fotograflar/bellis-villas-2.jpg"]
+      },
+      {
+        pinNum: 17,
+        id: "meet_point_bar", 
+        x: 26.0, y: 51.0, 
+        tr: { title: "Meet Point Bar", desc: "Sevdiklerinizle buluşup keyifli sohbetler eşliğinde içkinizi yudumlayacağınız nokta." },
+        en: { title: "Meet Point Bar", desc: "The point where you can meet your loved ones and sip your drink with pleasant conversations." },
+        ru: { title: "Бар Meet Point", desc: "Место, где вы можете встретиться с близкими и выпить напиток за приятной беседой." },
+        photos: ["fotograflar/meet-point-1.jpg", "fotograflar/meet-point-2.jpg"]
+      },
+      {
+        pinNum: 22,
+        id: "pier", 
+        x: 32.0, y: 93.5, 
+        tr: { title: "İskele & Pier Bar", desc: "Akdeniz'in üzerinde içeceğinizi yudumlayıp denizin tadını çıkarın." },
+        en: { title: "Pier Bar", desc: "Sip your drink over the Mediterranean and enjoy the sea." },
+        ru: { title: "Бар на пирсе", desc: "Наслаждайтесь напитком над Средиземным морем." },
+        photos: ["fotograflar/iskele-1.jpg", "fotograflar/iskele-2.jpg"]
+      },
+      {
+        pinNum: 31,
+        id: "diamond_villas", 
+        x: 89.0, y: 48.5, 
+        tr: { title: "Diamond Villaları", desc: "Size özel havuzlu ve ekstra lüks donanımlı premium konaklama." },
+        en: { title: "Diamond Villas", desc: "Premium accommodation with private pool and extra luxury amenities." },
+        ru: { title: "Виллы Diamond", desc: "Премиум-размещение с частным бассейном и дополнительными удобствами." },
+        photos: ["fotograflar/villas-1.jpg", "fotograflar/villas-2.jpg"]
+      },
+      {
+        pinNum: 14,
+        id: "kids_pool", 
+        x: 44.0, y: 48.5, 
+        tr: { title: "Çocuk Havuzu (Kids Pool)", desc: "Minik misafirlerimizin güvenle serinleyip suyun tadını çıkarabileceği çocuk yüzme havuzumuz." },
+        en: { title: "Kids Pool", desc: "Our children's swimming pool where our little guests can safely cool off and enjoy the water." },
+        ru: { title: "Детский бассейн", desc: "Наш детский бассейн, где наши маленькие гости могут безопасно освежиться и насладиться водой." },
+        photos: ["fotograflar/kids-pool-1.jpg", "fotograflar/kids-pool-2.jpg"]
+      },
+      {
+        pinNum: 2,
+        id: "multi_purpose_sports_field", 
+        x: 23.0, y: 5.0, 
+        tr: { title: "Çok Amaçlı Spor Sahası", desc: "Basketbol, tenis ve çeşitli spor aktiviteleri için kullanabileceğiniz çok amaçlı açık sahamız." },
+        en: { title: "Multi Purpose Sports Field", desc: "Our multi-purpose outdoor field that you can use for basketball, tennis, and various sports activities." },
+        ru: { title: "Многоцелевая спортивная площадка", desc: "Наша многоцелевая открытая площадка, которую вы можете использовать для баскетбола, тенниса и различных спортивных мероприятий." },
+        photos: ["fotograflar/sports-field-1.jpg", "fotograflar/sports-field-2.jpg"]
+      },
+      {
+        pinNum: 42,
+        id: "football_fields", 
+        x: 40.0, y: 8.5, 
+        tr: { title: "Futbol Sahaları & Tesisleri", desc: "Profesyonel standartlarda hazırlanmış, geniş ve bakımlı çim futbol sahalarımız." },
+        en: { title: "Football Fields & Facilities", desc: "Our large and well-maintained grass football fields prepared according to professional standards." },
+        ru: { title: "Футбольные поля и объекты", desc: "Наши большие и ухоженные травяные футбольные поля, подготовленные по профессиональным стандартам." },
+        photos: ["fotograflar/football-1.jpg", "fotograflar/football-2.jpg"]
+      },
+      {
+        pinNum: 43,
+        id: "archery_area", 
+        x: 79.0, y: 5.0, 
+        tr: { title: "Okçuluk Alanı (Archery Area)", desc: "Tatilinize heyecan katmak ve nişan alma yeteneklerinizi test etmek için özel okçuluk alanımız." },
+        en: { title: "Archery Area", desc: "Our special archery area to add excitement to your holiday and test your aiming skills." },
+        ru: { title: "Зона стрельбы из лука", desc: "Наша специальная зона для стрельбы из лука, чтобы добавить азарта вашему отдыху и проверить свои навыки прицеливания." },
+        photos: ["fotograflar/archery-1.jpg", "fotograflar/archery-2.jpg"]
+      }
+    ];
+
+    const mapWrapper = document.getElementById('mapWrapper');
+    const modal = document.getElementById('infoModal');
+    const modalData = document.getElementById('modalData');
+
+    locations.forEach(loc => {
+      const pin = document.createElement('div');
+      pin.className = 'pin';
+      pin.style.left = loc.x + '%';
+      pin.style.top = loc.y + '%';
+      
+      pin.innerHTML = `<span>${loc.pinNum}</span>`; 
+      
+      pin.onclick = () => openModal(loc);
+      
+      mapWrapper.appendChild(pin);
+    });
+
+    function openModal(loc) {
+      const photo1 = loc.photos[0] ? loc.photos[0] : 'https://via.placeholder.com/400x200?text=Fotoğraf+1';
+      const photo2 = loc.photos[1] ? loc.photos[1] : 'https://via.placeholder.com/400x200?text=Fotoğraf+2';
+
+      modalData.innerHTML = `
+        <div class="lang-section">
+          <h3><span class="flag">🇹🇷</span>${loc.tr.title}</h3>
+          <p>${loc.tr.desc}</p>
+        </div>
+        <div class="lang-section">
+          <h3><span class="flag">🇬🇧</span>${loc.en.title}</h3>
+          <p>${loc.en.desc}</p>
+        </div>
+        <div class="lang-section">
+          <h3><span class="flag">🇷🇺</span>${loc.ru.title}</h3>
+          <p>${loc.ru.desc}</p>
+        </div>
+       <div class="photo-gallery">
+          <img src="${photo1}" alt="${loc.tr.title} Fotoğraf 1" loading="lazy" onerror="this.src='https://via.placeholder.com/400x200?text=Fotoğraf+Eklenmedi'">
+          <img src="${photo2}" alt="${loc.tr.title} Fotoğraf 2" loading="lazy" onerror="this.src='https://via.placeholder.com/400x200?text=Fotoğraf+Eklenmedi'">
+        </div>
+      `;
+      modal.style.display = 'flex';
+    }
+
+    function closeModal() {
+      modal.style.display = 'none';
+    }
+
+    modal.onclick = function(e) {
+      if(e.target === modal) closeModal();
+    }
+  </script>
+</body>
+</html>
